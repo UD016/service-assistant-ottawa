@@ -1,9 +1,9 @@
 """
 Service Coordinator Assistant
-Version 1.0.1
+Version 1.1.0
 Author: UD016
 
-AI assistant for CSSNA Candiac
+AI assistant for CSSNA PGBU Service Departmentss
 
 Change log:
 
@@ -110,6 +110,15 @@ CACHE_DIR = Path(".cache")
 EMBEDDING_CACHE_PATH = CACHE_DIR / "service_assistant_embedding_index.pkl"
 SESSION_DB_PATH = Path("service_assistant_sessions.sqlite3")
 _SESSION_CACHE: dict[str, SQLiteSession] = {}
+
+# Retrieval scoring configuration
+KEYWORD_OVERLAP_BOOST = 0.05
+ACRONYM_MATCH_BOOST = 0.25
+DIRECTORY_QUERY_BOOST = 0.21
+ROLE_DIRECTORY_QUERY_BOOST = 0.20
+TECHNICIAN_QUERY_BOOST = 0.12
+
+SUPPORTED_BRANCHES = {"candiac", "ottawa"}
 
 SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
 SUPPORTED_TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".log", ".json", ".xml", ".yaml", ".yml"}
@@ -290,6 +299,63 @@ def is_technician_query(question: str) -> bool:
     """
     q = normalize_text(question)
     return any(normalize_text(hint) in q for hint in TECHNICAL_QUERY_HINTS)
+
+
+def normalize_source_path(source: str) -> str:
+    """
+    Normalize Windows and Unix source paths for reliable classification.
+    """
+    return source.replace("\\", "/").strip("/").lower()
+
+
+def classify_source(source: str) -> set[str]:
+    """
+    Identify the branch and functional category represented by a knowledge
+    base source.
+
+    This supports both the current layout and future branch-specific layouts,
+    for example:
+
+        technicians/name.md
+        ottawa/technicians/name.md
+        branches/ottawa/technicians/name.md
+        candiac_directory.md
+    """
+    normalized = normalize_source_path(source)
+    source_path = Path(normalized)
+    parts = set(source_path.parts)
+    stem = source_path.stem
+
+    tags: set[str] = set()
+
+    for branch in SUPPORTED_BRANCHES:
+        if branch in parts or branch in stem:
+            tags.add(branch)
+
+    if "branches" in parts:
+        tags.add("branch_specific")
+
+    # Existing root-level sources are shared unless they identify a branch.
+    if "shared" in parts or not tags.intersection(SUPPORTED_BRANCHES):
+        tags.add("shared")
+
+    if "technicians" in parts or "tech_profiles" in parts:
+        tags.add("technician")
+
+    if "directory" in stem:
+        tags.add("directory")
+
+    return tags
+
+
+ROLE_DIRECTORY_HINTS = {
+    "what is the role",
+    "what is his role",
+    "what is her role",
+    "what is their role",
+    "what is the position",
+    "what is the job title",
+}
 
 def is_list_all_query(question: str) -> bool:
     """
@@ -515,33 +581,28 @@ def score_chunk_embedding(
     qtokens = tokenize_for_retrieval(question)
     overlap = len(set(qtokens) & chunk.token_set)
 
-    score = similarity + (0.05 * overlap)
+    score = similarity + (KEYWORD_OVERLAP_BOOST * overlap)
 
     acronym = extract_acronym(question)
     if acronym and acronym.lower() in chunk.token_set:
-        score += 0.25
+        score += ACRONYM_MATCH_BOOST
 
-    if is_directory_query(question) and chunk.source.endswith("candiac_directory.md"):
-        score += 0.21
+    source_tags = classify_source(chunk.source)
+
+    if is_directory_query(question) and "directory" in source_tags:
+        score += DIRECTORY_QUERY_BOOST
 
     if is_directory_query(question):
         normalized_question = normalize_text(question)
 
-        role_hints = {
-            "what is the role",
-            "what is his role",
-            "what is her role",
-            "what is their role",
-            "what is the position",
-            "what is the job title",
-        }
+        if any(
+            normalize_text(hint) in normalized_question
+            for hint in ROLE_DIRECTORY_HINTS
+        ) and "directory" in source_tags:
+            score += ROLE_DIRECTORY_QUERY_BOOST
 
-        if any(normalize_text(hint) in normalized_question for hint in role_hints):
-            if chunk.source.endswith("candiac_directory.md"):
-                score += 0.20
-
-    if is_technician_query(question) and chunk.source.startswith("technicians\\"):
-        score += 0.12
+    if is_technician_query(question) and "technician" in source_tags:
+        score += TECHNICIAN_QUERY_BOOST
 
     return score
 
