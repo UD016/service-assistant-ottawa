@@ -51,7 +51,7 @@ import uuid
 
 import pandas as pd
 import requests
-from app_config import BRANCH_DEFAULT_LANGUAGES, SUPPORTED_BRANCHES
+from app_config import BRANCH_DEFAULT_LANGUAGES, BRANCH_PROFILES, SUPPORTED_BRANCHES
 from ui_text import SUPPORTED_LANGUAGES, get_ui_text
 
 from service_assistant import ask_service_assistant
@@ -131,8 +131,8 @@ if not is_tech:
     # Superviseur — navigation complète
     st.session_state.page = st.sidebar.radio(
         "Navigation",
-        ["🏠 Route Optimizer", "📅 Planning (Page 2)", "⏱ Feuille de temps", "Service Assistant"],
-        index=["🏠 Route Optimizer", "📅 Planning (Page 2)", "⏱ Feuille de temps", "Service Assistant"].index(st.session_state.page),
+        ["🏠 Route Optimizer", "📅 Planning (Page 2)", "⏱ Feuille de temps", "Service Assistant (Bob)"],
+        index=["🏠 Route Optimizer", "📅 Planning (Page 2)", "⏱ Feuille de temps", "Service Assistant (Bob)"].index(st.session_state.page),
         key="page_radio",
     )
 else:
@@ -1330,15 +1330,9 @@ def render_priority_dialog():
             st.session_state.priority_result = result
         _priority_render_result(result)
         st.divider()
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("Start Over", key="priority_dialog_restart"):
-                _priority_restart()
-                st.rerun()
-        with c2:
-            if st.button("Close", key="priority_dialog_close_2"):
-                _priority_reset_state()
-                st.rerun()
+        if st.button("Start Over", key = "priority_dialog_restart"):
+            _priority_restart()
+            st.rerun()
         return
 
     st.info("Use the button above to start the workflow.")
@@ -1408,57 +1402,56 @@ def render_service_assistant():
     if "assistant_upload_key" not in st.session_state:
         st.session_state.assistant_upload_key = 0
 
-    upload_col, priority_col, feedback_col, clear_col = st.columns([2, 1, 1, 1])
+    uploaded_files = st.file_uploader(
+        ui_text("upload_label"),
+        type = ["png", "jpg", "jpeg", "webp", "pdf", "txt", "md"],
+        accept_multiple_files = True,
+        key = f"assistant_uploads_{st.session_state.assistant_upload_key}",
+        help = ui_text("upload_help"),
+    )
 
-    with upload_col:
-        uploaded_files = st.file_uploader(
-            ui_text("upload_label"),
-            type=["png", "jpg", "jpeg", "webp", "pdf", "txt", "md"],
-            accept_multiple_files=True,
-            key=f"assistant_uploads_{st.session_state.assistant_upload_key}",
-            help=ui_text("upload_help"),
-        )
+    feedback_form_url = secret(
+        "FEEDBACK_FORM_URL",
+        "https://cummins365-my.sharepoint.com/:x:/g/personal/ud016_cummins_com/IQBzZlkW3pvPRboow-Ovr7GMATf7-Kzrp1kIZrJHa7ZhPcE?e=ZuMRMQ",
+    )
 
-    with priority_col:
-        if st.button(f"{ui_text('priority_button')}", key = "assistant_priority_open"):
-            _priority_open_dialog()
+    action_col, clear_col = st.columns([2, 1])
 
-    with feedback_col:
-        # Choice between Streamlit secret or hardcoded link
-        feedback_form_url = secret(
-            "FEEDBACK_FORM_URL",
-            "https://cummins365-my.sharepoint.com/:x:/g/personal/ud016_cummins_com/IQBzZlkW3pvPRboow-Ovr7GMATf7-Kzrp1kIZrJHa7ZhPcE?e=ZuMRMQ",
-        )
-        st.link_button(
-            f"{ui_text('feedback_button')}",
-            feedback_form_url,
-            help=ui_text("feedback_help"),
-        )
+    with action_col:
+        with st.container(horizontal = True):
+            if st.button(f"{ui_text('priority_button')}", key = "assistant_priority_open"):
+                _priority_open_dialog()
+            st.link_button(
+                f"{ui_text('feedback_button')}",
+                feedback_form_url,
+                help = ui_text("feedback_help"),
+            )
 
     with clear_col:
-        if st.button(f"{ui_text('clear_button')}", key = "assistant_clear"):
-            st.session_state.assistant_messages = [
-                {"role": "assistant", "content": ui_text("greeting")}
-            ]
+        with st.container(horizontal = True, horizontal_alignment = "right"):
+            if st.button(f"{ui_text('clear_button')}", key = "assistant_clear"):
+                st.session_state.assistant_messages = [
+                    {"role": "assistant", "content": ui_text("greeting")}
+                ]
 
-            st.session_state.assistant_session_id = str(uuid.uuid4())
+                st.session_state.assistant_session_id = str(uuid.uuid4())
 
-            # Reset temporary context
-            st.session_state.assistant_temp_context = ""
+                # Reset temporary context
+                st.session_state.assistant_temp_context = ""
 
-            # Force a fresh uploader
-            st.session_state.assistant_upload_key += 1
+                # Force a fresh uploader
+                st.session_state.assistant_upload_key += 1
 
-            st.rerun()
+                st.rerun()
 
     if uploaded_files:
-        st.caption(f"{ui_text('attached', count=len(uploaded_files))}")
+        st.caption(f"{ui_text('attached', count = len(uploaded_files))}")
 
     # Avoid assigning the return value back into session_state.
     # The widget already manages that. Otherwise error.
     st.text_area(
         ui_text("temporary_notes"),
-        placeholder=ui_text("temporary_notes_placeholder"),
+        placeholder = ui_text("temporary_notes_placeholder"),
         height = 120,
         key = "assistant_temp_context",
     )
@@ -1492,11 +1485,15 @@ def render_service_assistant():
         with st.chat_message("assistant"):
             with st.spinner(ui_text("analyzing")):
                 try:
+                    branch_profile = BRANCH_PROFILES[
+                        st.session_state.active_branch
+                    ]
                     answer = ask_service_assistant(
-                        question=question,
-                        session_id=st.session_state.assistant_session_id,
-                        temporary_context=temp_context or None,
-                        uploaded_sources=uploaded_files,
+                        question = question,
+                        session_id = st.session_state.assistant_session_id,
+                        knowledge_base_paths = branch_profile["knowledge_base_paths"],
+                        temporary_context = temp_context or None,
+                        uploaded_sources = uploaded_files,
                     )
 
                 except Exception as e:
@@ -4699,5 +4696,5 @@ elif page == "📅 Planning (Page 2)":
 elif page == "⏱ Feuille de temps":
     show_timesheet()
 
-elif page == "Service Assistant":
+elif page == "Service Assistant (Bob)":
     render_service_assistant()

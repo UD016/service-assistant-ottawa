@@ -4,4 +4,7 @@ label = "Candiac - Z8"
 display_order = 1
 default_language = "fr"
 timezone = "America/Montreal"
-knowledge_base_path = "knowledge_base/candiac"
+knowledge_base_paths = [
+    "knowledge_base/shared",
+    "knowledge_base/candiac",
+]

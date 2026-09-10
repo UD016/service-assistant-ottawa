@@ -4,4 +4,8 @@ label = "Ottawa - AK"
 display_order = 2
 default_language = "en"
 timezone = "America/Toronto"
-knowledge_base_path = "knowledge_base/ottawa"
+knowledge_base_paths = [
+    "knowledge_base/shared",
+    "knowledge_base/ottawa",
+]
+
