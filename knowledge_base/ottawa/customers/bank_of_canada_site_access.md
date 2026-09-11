@@ -10,7 +10,7 @@ language: bilingual
 keywords:
   - Bank of Canada
   - Banque du Canada
-  - BOC
+  - BoC
   - security access
   - accès de sécurité
   - security screening
@@ -27,15 +27,23 @@ keywords:
   - facilities RFA
 ---
 
-# Last Updated: 2026-09-10
+# Last Updated: 2026-09-11
 
 # Bank of Canada — Security Access
 
 ## Purpose
 
-This procedure explains the security screening process that must be completed for an employee or technician who requires access to a **Bank of Canada (BOC) site**.
+This procedure explains the security screening process that must be completed for an employee or technician who requires access to a **Bank of Canada (BoC) site**.
 
 Bank of Canada security screening is separate from security clearances obtained for other government buildings. An employee who is already cleared to enter another government facility **cannot use that clearance as authorization to access a Bank of Canada site**.
+
+---
+
+## Source Document
+
+The complete Bank of Canada security screening instructions are available here:
+
+**Source document:** [Bank of Canada Security Screening Instructions](https://cummins365-my.sharepoint.com/:w:/g/personal/ud016_cummins_com/IQAT5Bccq0NaSoMAFkOsofWaARmvZBsF5YEdpQFG0mErnaU?e=FqD2u4)
 
 ---
 

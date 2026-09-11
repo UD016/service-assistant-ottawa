@@ -320,7 +320,7 @@ def classify_source(source: str) -> set[str]:
         technicians/name.md
         ottawa/technicians/name.md
         branches/ottawa/technicians/name.md
-        candiac_directory.md
+        directory.md
     """
     normalized = normalize_source_path(source)
     source_path = Path(normalized)
@@ -1130,7 +1130,7 @@ Temporary uploaded-file context:
 
     return Agent(
         name = "Service Assistant",
-        model = "gpt-5.6-luna", # Luna is sufficient for now
+        model = "gpt-5.6-luna", 
         model_settings = ModelSettings(reasoning = Reasoning(effort = "medium"), verbosity = "low"),
         instructions = human_instructions,
     )
